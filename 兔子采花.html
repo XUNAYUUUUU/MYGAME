@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小兔子采花</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            font-family: 'Microsoft YaHei', sans-serif;
+            user-select: none;
+            background: #000;
+        }
+
+        #gameCanvas {
+            display: block;
+            cursor: none;
+        }
+
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            pointer-events: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 10;
+        }
+
+        .panel {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 18px;
+            border-radius: 15px;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 2px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(5px);
+        }
+
+        .panel .emoji {
+            font-size: 24px;
+        }
+
+        .panel .label {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .panel .value {
+            font-size: 26px;
+            font-weight: bold;
+            min-width: 35px;
+            text-align: center;
+        }
+
+        #scoreValue { color: #FF69B4; }
+        #lifeValue { color: #FF4444; }
+        #timeValue { color: #00FF88; }
+
+        .health-bar {
+            width: 120px;
+            height: 18px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 9px;
+            overflow: hidden;
+            margin-left: 8px;
+        }
+
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4444, #ff6666);
+            border-radius: 9px;
+            transition: width 0.3s;
+        }
+
+        .health-fill.high { background: linear-gradient(90deg, #00ff88, #00cc66); }
+        .health-fill.medium { background: linear-gradient(90deg, #ffaa00, #ff8800); }
+        .health-fill.low { background: linear-gradient(90deg, #ff4444, #cc0000); }
+
+        /* 倒计时警告 */
+        #countdownWarning {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 100px;
+            font-weight: bold;
+            color: #FF0000;
+            text-shadow: 0 0 30px rgba(255,0,0,0.8);
+            pointer-events: none;
+            z-index: 100;
+            display: none;
+            animation: warningPulse 0.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes warningPulse {
+            from { transform: translate(-50%, -50%) scale(1); }
+            to { transform: translate(-50%, -50%) scale(1.15); }
+        }
+
+        /* 受伤闪烁 */
+        .screen-flash {
+            animation: flashRed 0.3s ease-out;
+        }
+
+        @keyframes flashRed {
+            0% { box-shadow: inset 0 0 0 rgba(255,0,0,0); }
+            50% { box-shadow: inset 0 0 100px rgba(255,0,0,0.5); }
+            100% { box-shadow: inset 0 0 0 rgba(255,0,0,0); }
+        }
+
+        /* 屏幕震动 */
+        .screen-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            20% { transform: translate(-6px, 3px); }
+            40% { transform: translate(6px, -3px); }
+            60% { transform: translate(-4px, 2px); }
+            80% { transform: translate(4px, -2px); }
+        }
+
+        /* 飘字效果 */
+        .float-text {
+            position: absolute;
+            font-size: 32px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 200;
+            animation: floatUp 1s ease-out forwards;
+        }
+
+        .float-plus { color: #FF69B4; text-shadow: 0 0 10px rgba(255,105,180,0.5); }
+        .float-minus1 { color: #FF8800; text-shadow: 0 0 10px rgba(255,136,0,0.5); }
+        .float-minus2 { color: #FF0000; text-shadow: 0 0 10px rgba(255,0,0,0.5); }
+        .float-wolf { color: #8B0000; text-shadow: 0 0 15px rgba(139,0,0,0.8); font-size: 40px; }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            50% { transform: translateY(-40px) scale(1.2); opacity: 1; }
+            100% { transform: translateY(-100px) scale(0.8); opacity: 0; }
+        }
+
+        /* 进度条 */
+        #progressBar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: rgba(0,0,0,0.3);
+            z-index: 5;
+        }
+
+        #progressFill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88, #00cc66);
+            width: 100%;
+            transition: width 1s linear;
+        }
+
+        #progressFill.urgent {
+            background: linear-gradient(90deg, #ff4444, #cc0000);
+        }
+
+        /* 开始/结束界面 */
+        #startScreen, #gameOverScreen, #victoryScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.75);
+            z-index: 300;
+        }
+
+        .screen-content {
+            background: linear-gradient(135deg, #1a3a1a 0%, #2d5a2d 100%);
+            padding: 45px;
+            border-radius: 25px;
+            text-align: center;
+            border: 3px solid #4a9f4a;
+            box-shadow: 0 0 50px rgba(74, 159, 74, 0.3);
+            max-width: 90%;
+            animation: popIn 0.5s ease-out;
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0.5); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .screen-content h1 {
+            font-size: 44px;
+            color: #FF69B4;
+            margin-bottom: 15px;
+            text-shadow: 0 0 20px rgba(255,105,180,0.5);
+        }
+
+        .screen-content p {
+            font-size: 18px;
+            color: #ddd;
+            margin-bottom: 12px;
+            line-height: 1.7;
+        }
+
+        .rules {
+            background: rgba(255,255,255,0.1);
+            padding: 18px;
+            border-radius: 12px;
+            margin: 18px 0;
+            text-align: left;
+        }
+
+        .rules h3 {
+            color: #90EE90;
+            margin-bottom: 12px;
+            text-align: center;
+            font-size: 20px;
+        }
+
+        .rules ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .rules li {
+            padding: 6px 0;
+            color: #eee;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .rules li .icon {
+            font-size: 22px;
+            min-width: 30px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #ff69b4 0%, #ff1493 100%);
+            color: white;
+            border: none;
+            padding: 14px 45px;
+            font-size: 22px;
+            border-radius: 50px;
+            cursor: pointer;
+            pointer-events: all;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-family: 'Microsoft YaHei', sans-serif;
+            font-weight: bold;
+            margin: 8px;
+        }
+
+        .btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 5px 25px rgba(255, 105, 180, 0.5);
+        }
+
+        .rabbit-icon {
+            font-size: 60px;
+            margin: 15px 0;
+            animation: bounce 1s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        #gameOverScreen h1 { color: #FF4444; }
+        #victoryScreen h1 { color: #FFD700; }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 15px 0;
+        }
+
+        .stat-box {
+            background: rgba(255,255,255,0.1);
+            padding: 14px;
+            border-radius: 10px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #aaa;
+        }
+
+        .stat-value {
+            font-size: 26px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        /* 操作提示 */
+        #controlsHint {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.7);
+            font-size: 15px;
+            pointer-events: none;
+            z-index: 5;
+            background: rgba(0,0,0,0.3);
+            padding: 8px 16px;
+            border-radius: 20px;
+        }
+
+        .key {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 3px 10px;
+            border-radius: 6px;
+            margin: 0 3px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="progressBar">
+        <div id="progressFill"></div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="countdownWarning">30</div>
+
+    <div id="ui">
+        <div class="panel">
+            <span class="emoji">🌸</span>
+            <span class="label">花朵：</span>
+            <span class="value" id="scoreValue">0</span>
+        </div>
+        <div class="panel">
+            <span class="emoji">❤️</span>
+            <span class="label">生命：</span>
+            <span class="value" id="lifeValue">5</span>
+            <div class="health-bar">
+                <div class="health-fill high" id="healthFill" style="width: 100%"></div>
+            </div>
+        </div>
+        <div class="panel">
+            <span class="emoji">⏰</span>
+            <span class="label">时间：</span>
+            <span class="value" id="timeValue">2:00</span>
+        </div>
+    </div>
+
+    <div id="controlsHint">
+        操作：<span class="key">↑</span><span class="key">↓</span><span class="key">←</span><span class="key">→</span> 移动小兔子 | 游戏时长 2 分钟
+    </div>
+
+    <div id="startScreen">
+        <div class="screen-content">
+            <div class="rabbit-icon">🐰</div>
+            <h1>小兔子采花</h1>
+            <div class="rules">
+                <h3>🌲 森林冒险规则 🌲</h3>
+                <ul>
+                    <li><span class="icon">🌸</span> 采到花朵 <strong>+1 分</strong></li>
+                    <li><span class="icon">🪨</span> 撞到石头 <strong>-1 生命</strong></li>
+                    <li><span class="icon">🍄</span> 撞到毒蘑菇 <strong>-2 生命</strong></li>
+                    <li><span class="icon">🐺</span> 撞到狼 <strong>游戏失败！</strong></li>
+                    <li><span class="icon">⏰</span> 游戏时长 <strong>2 分钟</strong></li>
+                </ul>
+            </div>
+            <button class="btn" onclick="startGame()">开始冒险</button>
+        </div>
+    </div>
+
+    <div id="gameOverScreen" style="display: none;">
+        <div class="screen-content">
+            <div class="rabbit-icon">💔</div>
+            <h1>冒险结束</h1>
+            <p id="gameOverReason" style="color: #ff8888; font-size: 20px;"></p>
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="stat-label">采到花朵</div>
+                    <div class="stat-value" id="finalScore">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">剩余生命</div>
+                    <div class="stat-value" id="finalLife">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">生存时间</div>
+                    <div class="stat-value" id="finalTime">0:00</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">评价</div>
+                    <div class="stat-value" id="finalRank">⭐</div>
+                </div>
+            </div>
+            <button class="btn" onclick="restartGame()">再来一次</button>
+        </div>
+    </div>
+
+    <div id="victoryScreen" style="display: none;">
+        <div class="screen-content">
+            <div class="rabbit-icon">🎉</div>
+            <h1>冒险完成！</h1>
+            <p style="color: #FFD700; font-size: 20px;">2分钟到了！小兔子安全回家啦！</p>
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="stat-label">采到花朵</div>
+                    <div class="stat-value" id="victoryScore">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">剩余生命</div>
+                    <div class="stat-value" id="victoryLife">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">躲避危险</div>
+                    <div class="stat-value" id="victoryDodges">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">评价</div>
+                    <div class="stat-value" id="victoryRank">⭐</div>
+                </div>
+            </div>
+            <button class="btn" onclick="restartGame()">再玩一次</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 游戏常量
+        const GAME_DURATION = 120; // 2分钟
+        const WARNING_TIME = 30;   // 最后30秒警告
+        const MAX_LIFE = 5;
+        const PLAYER_SPEED = 5;
+        const SCROLL_SPEED = 3;
+        const SPAWN_RATE = 60; // 每60帧生成一个物品
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // 游戏状态
+        let gameState = 'start';
+        let score = 0;
+        let life = MAX_LIFE;
+        let startTime = 0;
+        let elapsedTime = 0;
+        let remainingTime = GAME_DURATION;
+        let countdownValue = WARNING_TIME + 1;
+        let dodges = 0; // 躲避危险次数统计
+
+        // 按键状态
+        const keys = {
+            ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
+            w: false, s: false, a: false, d: false
+        };
+
+        // 游戏对象
+        let player = null;
+        let items = []; // 花朵、石头、蘑菇、狼
+        let particles = [];
+        let groundOffset = 0;
+        let spawnTimer = 0;
+        let trees = [];
+        let clouds = [];
+
+        // DOM元素
+        const scoreValue = document.getElementById('scoreValue');
+        const lifeValue = document.getElementById('lifeValue');
+        const timeValue = document.getElementById('timeValue');
+        const healthFill = document.getElementById('healthFill');
+        const progressFill = document.getElementById('progressFill');
+        const countdownWarning = document.getElementById('countdownWarning');
+        const gameOverReason = document.getElementById('gameOverReason');
+
+        // 初始化背景元素
+        function initBackground() {
+            trees = [];
+            for (let i = 0; i < 15; i++) {
+                trees.push({
+                    x: Math.random() * canvas.width,
+                    y: canvas.height - 80 - Math.random() * 100,
+                    width: 30 + Math.random() * 40,
+                    height: 60 + Math.random() * 80,
+                    type: Math.random() > 0.5 ? 'pine' : 'round',
+                    color: `hsl(${100 + Math.random() * 40}, ${60 + Math.random() * 20}%, ${25 + Math.random() * 15}%)`
+                });
+            }
+
+            clouds = [];
+            for (let i = 0; i < 6; i++) {
+                clouds.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height * 0.4,
+                    width: 80 + Math.random() * 120,
+                    speed: 0.3 + Math.random() * 0.5,
+                    opacity: 0.4 + Math.random() * 0.4
+                });
+            }
+        }
+        initBackground();
+
+        // 物品类型
+        const ITEM_TYPES = {
+            flower: { emoji: '🌸', score: 1, damage: 0, size: 35, color: '#FF69B4' },
+            flower2: { emoji: '🌺', score: 1, damage: 0, size: 35, color: '#FF1493' },
+            flower3: { emoji: '🌻', score: 1, damage: 0, size: 35, color: '#FFD700' },
+            stone: { emoji: '🪨', score: 0, damage: 1, size: 40, color: '#888888' },
+            mushroom: { emoji: '🍄', score: 0, damage: 2, size: 38, color: '#FF4444' },
+            wolf: { emoji: '🐺', score: 0, damage: -1, size: 50, color: '#8B4513' } // -1表示直接失败
+        };
+
+        // 小兔子
+        class Rabbit {
+            constructor() {
+                this.size = 50;
+                this.x = canvas.width / 2;
+                this.y = canvas.height / 2;
+                this.invincible = 0; // 无敌帧
+                this.hopPhase = 0;
+                this.facing = 1; // 1右 -1左
+            }
+
+            update() {
+                // 移动
+                let moved = false;
+                if ((keys.ArrowUp || keys.w) && this.y > this.size) {
+                    this.y -= PLAYER_SPEED;
+                    moved = true;
+                }
+                if ((keys.ArrowDown || keys.s) && this.y < canvas.height - this.size - 50) {
+                    this.y += PLAYER_SPEED;
+                    moved = true;
+                }
+                if ((keys.ArrowLeft || keys.a) && this.x > this.size) {
+                    this.x -= PLAYER_SPEED;
+                    this.facing = -1;
+                    moved = true;
+                }
+                if ((keys.ArrowRight || keys.d) && this.x < canvas.width - this.size) {
+                    this.x += PLAYER_SPEED;
+                    this.facing = 1;
+                    moved = true;
+                }
+
+                this.hopPhase += moved ? 0.3 : 0.1;
+                if (this.invincible > 0) this.invincible--;
+            }
+
+            draw() {
+                ctx.save();
+                
+                // 无敌闪烁
+                if (this.invincible > 0 && Math.floor(this.invincible / 4) % 2 === 0) {
+                    ctx.globalAlpha = 0.5;
+                }
+
+                const hopY = Math.sin(this.hopPhase) * 8;
+                const drawX = this.x;
+                const drawY = this.y + hopY;
+
+                ctx.translate(drawX, drawY);
+                ctx.scale(this.facing, 1);
+
+                // 阴影
+                ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                ctx.beginPath();
+                ctx.ellipse(0, 25 - hopY, 20, 8, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 身体
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.ellipse(0, 5, 22, 18, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 头
+                ctx.beginPath();
+                ctx.arc(0, -12, 16, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 耳朵
+                ctx.fillStyle = '#FFFFFF';
+                // 左耳
+                ctx.beginPath();
+                ctx.ellipse(-8, -28, 6, 18, -0.2, 0, Math.PI * 2);
+                ctx.fill();
+                // 右耳
+                ctx.beginPath();
+                ctx.ellipse(8, -28, 6, 18, 0.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 耳朵内部（粉色）
+                ctx.fillStyle = '#FFB6C1';
+                ctx.beginPath();
+                ctx.ellipse(-8, -28, 3, 12, -0.2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(8, -28, 3, 12, 0.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 眼睛
+                ctx.fillStyle = '#333333';
+                ctx.beginPath();
+                ctx.arc(-6, -14, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(6, -14, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 眼睛高光
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(-5, -15, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(7, -15, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 鼻子
+                ctx.fillStyle = '#FF69B4';
+                ctx.beginPath();
+                ctx.arc(0, -10, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 嘴巴
+                ctx.strokeStyle = '#FF69B4';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(-3, -7, 3, 0, Math.PI);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(3, -7, 3, 0, Math.PI);
+                ctx.stroke();
+
+                // 尾巴
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(-20, 8, 8, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 腮红
+                ctx.fillStyle = 'rgba(255, 182, 193, 0.5)';
+                ctx.beginPath();
+                ctx.arc(-12, -8, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(12, -8, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            getBounds() {
+                return {
+                    left: this.x - this.size/2 + 5,
+                    right: this.x + this.size/2 - 5,
+                    top: this.y - this.size/2 + 5,
+                    bottom: this.y + this.size/2
+                };
+            }
+        }
+
+        // 物品类
+        class Item {
+            constructor(type) {
+                this.type = type;
+                this.config = ITEM_TYPES[type];
+                this.size = this.config.size;
+                this.x = Math.random() * (canvas.width - this.size * 2) + this.size;
+                this.y = -this.size - 20;
+                this.speed = SCROLL_SPEED + Math.random() * 1.5;
+                this.rotation = 0;
+                this.rotSpeed = (Math.random() - 0.5) * 0.05;
+                this.collected = false;
+                this.wobble = Math.random() * Math.PI * 2;
+            }
+
+            update() {
+                this.y += this.speed;
+                this.rotation += this.rotSpeed;
+                this.wobble += 0.05;
+                this.x += Math.sin(this.wobble) * 0.5;
+            }
+
+            draw() {
+                if (this.collected) return;
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                // 绘制emoji
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.config.emoji, 0, 0);
+
+                // 狼的特殊效果
+                if (this.type === 'wolf') {
+                    const glowSize = 15 + Math.sin(Date.now() / 200) * 5;
+                    ctx.strokeStyle = `rgba(255, 0, 0, ${0.3 + Math.sin(Date.now() / 300) * 0.2})`;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.size/2 + glowSize, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+
+            isOffScreen() {
+                return this.y > canvas.height + this.size;
+            }
+
+            getBounds() {
+                return {
+                    left: this.x - this.size/2 + 5,
+                    right: this.x + this.size/2 - 5,
+                    top: this.y - this.size/2 + 5,
+                    bottom: this.y + this.size/2 - 5
+                };
+            }
+        }
+
+        // 粒子效果
+        class Particle {
+            constructor(x, y, color, emoji = null) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 8;
+                this.vy = (Math.random() - 0.5) * 8 - 3;
+                this.radius = 3 + Math.random() * 4;
+                this.color = color;
+                this.emoji = emoji;
+                this.life = 1;
+                this.decay = 0.015 + Math.random() * 0.015;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.15;
+                this.life -= this.decay;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                
+                if (this.emoji) {
+                    ctx.font = '20px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(this.emoji, this.x, this.y);
+                } else {
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+            }
+        }
+
+        function createExplosion(x, y, color, count = 12, emoji = null) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color, emoji));
+            }
+        }
+
+        // 飘字
+        function showFloatText(x, y, text, type) {
+            const el = document.createElement('div');
+            el.className = `float-text float-${type}`;
+            el.textContent = text;
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1000);
+        }
+
+        // 碰撞检测
+        function checkCollision(a, b) {
+            const ab = a.getBounds();
+            const bb = b.getBounds();
+            return ab.left < bb.right && ab.right > bb.left &&
+                   ab.top < bb.bottom && ab.bottom > bb.top;
+        }
+
+        // 生成物品
+        function spawnItem() {
+            spawnTimer++;
+            if (spawnTimer >= SPAWN_RATE) {
+                spawnTimer = 0;
+                
+                const rand = Math.random();
+                let type;
+                
+                // 生成概率：花朵60%，石头20%，蘑菇12%，狼8%
+                if (rand < 0.6) {
+                    const flowerTypes = ['flower', 'flower2', 'flower3'];
+                    type = flowerTypes[Math.floor(Math.random() * flowerTypes.length)];
+                } else if (rand < 0.8) {
+                    type = 'stone';
+                } else if (rand < 0.92) {
+                    type = 'mushroom';
+                } else {
+                    type = 'wolf';
+                }
+                
+                items.push(new Item(type));
+            }
+        }
+
+        // 绘制森林背景
+        function drawForest() {
+            // 天空渐变
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            skyGrad.addColorStop(0, '#87CEEB');
+            skyGrad.addColorStop(0.5, '#B0E0E6');
+            skyGrad.addColorStop(1, '#E0F7FA');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 云朵
+            ctx.save();
+            clouds.forEach(cloud => {
+                cloud.x += cloud.speed;
+                if (cloud.x > canvas.width + cloud.width) {
+                    cloud.x = -cloud.width;
+                    cloud.y = Math.random() * canvas.height * 0.4;
+                }
+                
+                ctx.globalAlpha = cloud.opacity;
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(cloud.x, cloud.y, cloud.width * 0.3, 0, Math.PI * 2);
+                ctx.arc(cloud.x + cloud.width * 0.25, cloud.y - cloud.width * 0.1, cloud.width * 0.35, 0, Math.PI * 2);
+                ctx.arc(cloud.x + cloud.width * 0.5, cloud.y, cloud.width * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.restore();
+
+            // 地面
+            const groundY = canvas.height - 60;
+            ctx.fillStyle = '#4a8c4a';
+            ctx.fillRect(0, groundY, canvas.width, 60);
+            
+            // 草地纹理
+            ctx.fillStyle = '#5a9c5a';
+            for (let i = 0; i < canvas.width; i += 20) {
+                const grassH = 8 + Math.sin((i + groundOffset) / 30) * 5;
+                ctx.fillRect(i, groundY - grassH, 3, grassH + 5);
+            }
+
+            // 树木（视差滚动）
+            trees.forEach(tree => {
+                tree.x -= SCROLL_SPEED * 0.3;
+                if (tree.x < -tree.width) {
+                    tree.x = canvas.width + tree.width;
+                    tree.y = canvas.height - 80 - Math.random() * 100;
+                }
+
+                ctx.fillStyle = tree.color;
+                
+                if (tree.type === 'pine') {
+                    // 松树
+                    ctx.beginPath();
+                    ctx.moveTo(tree.x, tree.y - tree.height);
+                    ctx.lineTo(tree.x - tree.width/2, tree.y);
+                    ctx.lineTo(tree.x + tree.width/2, tree.y);
+                    ctx.closePath();
+                    ctx.fill();
+                } else {
+                    // 圆树
+                    ctx.beginPath();
+                    ctx.arc(tree.x, tree.y - tree.height/3, tree.width/2, 0, Math.PI * 2);
+                    ctx.fill();
+                    // 树干
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(tree.x - 5, tree.y - tree.height/3, 10, tree.height/2);
+                }
+            });
+
+            // 小路
+            ctx.fillStyle = '#D2B48C';
+            const pathWidth = 120;
+            const pathX = (canvas.width - pathWidth) / 2;
+            ctx.fillRect(pathX, 0, pathWidth, canvas.height);
+            
+            // 路边小花装饰
+            ctx.font = '16px Arial';
+            for (let y = -20; y < canvas.height + 20; y += 40) {
+                const offsetY = (y + groundOffset) % (canvas.height + 40) - 20;
+                ctx.fillText('🌿', pathX - 15, offsetY);
+                ctx.fillText('🌿', pathX + pathWidth + 5, offsetY);
+            }
+        }
+
+        // 更新时间
+        function updateTimer() {
+            if (gameState !== 'playing') return;
+
+            const now = Date.now();
+            elapsedTime = (now - startTime) / 1000;
+            remainingTime = Math.max(0, GAME_DURATION - elapsedTime);
+
+            // 更新UI
+            const mins = Math.floor(remainingTime / 60);
+            const secs = Math.floor(remainingTime % 60);
+            timeValue.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+            // 进度条
+            const progress = (remainingTime / GAME_DURATION) * 100;
+            progressFill.style.width = `${progress}%`;
+            if (remainingTime <= WARNING_TIME) {
+                progressFill.classList.add('urgent');
+            }
+
+            // 最后30秒倒计时
+            if (remainingTime <= WARNING_TIME) {
+                const currentCountdown = Math.ceil(remainingTime);
+                if (currentCountdown !== countdownValue && currentCountdown > 0) {
+                    countdownValue = currentCountdown;
+                    countdownWarning.textContent = currentCountdown;
+                    countdownWarning.style.display = 'block';
+                    setTimeout(() => {
+                        if (Math.ceil(remainingTime) !== currentCountdown) {
+                            countdownWarning.style.display = 'none';
+                        }
+                    }, 900);
+                }
+            }
+
+            // 时间到，胜利
+            if (remainingTime <= 0) {
+                victory();
+            }
+        }
+
+        // 更新UI
+        function updateUI() {
+            scoreValue.textContent = score;
+            lifeValue.textContent = life;
+            
+            const lifePercent = (life / MAX_LIFE) * 100;
+            healthFill.style.width = lifePercent + '%';
+            healthFill.className = 'health-fill ' + (lifePercent > 60 ? 'high' : (lifePercent > 30 ? 'medium' : 'low'));
+        }
+
+        // 处理碰撞
+        function handleCollision(item, index) {
+            const config = item.config;
+
+            if (config.damage === 0) {
+                // 花朵 - 加分
+                score += config.score;
+                createExplosion(item.x, item.y, config.color, 15, item.config.emoji);
+                showFloatText(item.x, item.y, `+${config.score}`, 'plus');
+                
+            } else if (config.damage === -1) {
+                // 狼 - 直接失败
+                createExplosion(item.x, item.y, '#FF0000', 30);
+                createExplosion(player.x, player.y, '#FF4444', 20);
+                showFloatText(item.x, item.y - 30, '🐺 被狼抓住了！', 'wolf');
+                document.body.classList.add('screen-shake');
+                setTimeout(() => document.body.classList.remove('screen-shake'), 500);
+                gameOver('被大灰狼抓住了！');
+                return true;
+                
+            } else {
+                // 石头/蘑菇 - 扣生命
+                life -= config.damage;
+                createExplosion(item.x, item.y, '#FF8800', 12);
+                showFloatText(item.x, item.y, `-${config.damage}`, config.damage === 1 ? 'minus1' : 'minus2');
+                
+                // 受伤效果
+                player.invincible = 45; // 0.75秒无敌
+                document.body.classList.add('screen-flash');
+                setTimeout(() => document.body.classList.remove('screen-flash'), 300);
+
+                if (life <= 0) {
+                    gameOver(config.damage === 1 ? '被石头撞晕了...' : '毒蘑菇太可怕了...');
+                    return true;
+                }
+            }
+
+            items.splice(index, 1);
+            return false;
+        }
+
+        // 游戏主循环
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制森林背景
+            drawForest();
+
+            if (gameState === 'playing') {
+                updateTimer();
+
+                // 更新玩家
+                player.update();
+                player.draw();
+
+                // 生成物品
+                spawnItem();
+
+                // 更新物品
+                for (let i = items.length - 1; i >= 0; i--) {
+                    const item = items[i];
+                    item.update();
+                    item.draw();
+
+                    // 碰撞检测
+                    if (!item.collected && checkCollision(player, item) && player.invincible <= 0) {
+                        if (handleCollision(item, i)) {
+                            return; // 游戏结束
+                        }
+                        continue;
+                    }
+
+                    // 移除屏幕外物品
+                    if (item.isOffScreen()) {
+                        // 统计躲避的危险
+                        if (item.config.damage > 0 || item.config.damage === -1) {
+                            dodges++;
+                        }
+                        items.splice(i, 1);
+                    }
+                }
+
+                // 更新粒子
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.update();
+                    p.draw();
+                    if (p.life <= 0) {
+                        particles.splice(i, 1);
+                    }
+                }
+
+                // 滚动地面
+                groundOffset += SCROLL_SPEED;
+                if (groundOffset > 40) groundOffset = 0;
+
+                updateUI();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 键盘事件
+        window.addEventListener('keydown', (e) => {
+            if (keys.hasOwnProperty(e.key)) {
+                keys[e.key] = true;
+                e.preventDefault();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (keys.hasOwnProperty(e.key)) {
+                keys[e.key] = false;
+            }
+        });
+
+        // 触摸控制（移动端）
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!player || gameState !== 'playing') return;
+            
+            const touch = e.touches[0];
+            const dx = touch.clientX - touchStartX;
+            const dy = touch.clientY - touchStartY;
+            
+            player.x += dx * 0.8;
+            player.y += dy * 0.8;
+            
+            // 边界限制
+            player.x = Math.max(player.size/2, Math.min(canvas.width - player.size/2, player.x));
+            player.y = Math.max(player.size/2, Math.min(canvas.height - player.size/2 - 50, player.y));
+            
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+        }, { passive: false });
+
+        // 评价等级
+        function getRank(score, life) {
+            const total = score + life * 2;
+            if (total >= 30) return '🏆 森林之王';
+            if (total >= 20) return '⭐⭐⭐ 采花高手';
+            if (total >= 12) return '⭐⭐ 勇敢小兔';
+            if (total >= 6) return '⭐ 森林新手';
+            return '🌱 继续加油';
+        }
+
+        // 游戏控制
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('gameOverScreen').style.display = 'none';
+            document.getElementById('victoryScreen').style.display = 'none';
+            
+            gameState = 'playing';
+            score = 0;
+            life = MAX_LIFE;
+            elapsedTime = 0;
+            remainingTime = GAME_DURATION;
+            countdownValue = WARNING_TIME + 1;
+            dodges = 0;
+            
+            player = new Rabbit();
+            items = [];
+            particles = [];
+            spawnTimer = 0;
+            groundOffset = 0;
+            
+            progressFill.style.width = '100%';
+            progressFill.classList.remove('urgent');
+            countdownWarning.style.display = 'none';
+            
+            startTime = Date.now();
+        }
+
+        function restartGame() {
+            startGame();
+        }
+
+        function gameOver(reason) {
+            gameState = 'gameover';
+            countdownWarning.style.display = 'none';
+            
+            const mins = Math.floor(elapsedTime / 60);
+            const secs = Math.floor(elapsedTime % 60);
+            
+            gameOverReason.textContent = reason;
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalLife').textContent = life;
+            document.getElementById('finalTime').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+            document.getElementById('finalRank').textContent = getRank(score, life);
+            
+            document.getElementById('gameOverScreen').style.display = 'flex';
+        }
+
+        function victory() {
+            gameState = 'victory';
+            countdownWarning.style.display = 'none';
+            
+            const mins = Math.floor(elapsedTime / 60);
+            const secs = Math.floor(elapsedTime % 60);
+            
+            document.getElementById('victoryScore').textContent = score;
+            document.getElementById('victoryLife').textContent = life;
+            document.getElementById('victoryDodges').textContent = dodges;
+            document.getElementById('victoryRank').textContent = getRank(score, life);
+            document.getElementById('victoryTime').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+            
+            document.getElementById('victoryScreen').style.display = 'flex';
+        }
+
+        // 启动
+        gameLoop();
+    </script>
+</body>
+</html>

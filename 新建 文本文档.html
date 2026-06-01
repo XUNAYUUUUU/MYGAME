@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单词大作战 - 背单词小游戏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 800px;
+            height: 100vh;
+            max-height: 900px;
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 开始界面 */
+        #startScreen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+
+        .logo {
+            font-size: 80px;
+            margin-bottom: 10px;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        h1 {
+            font-size: 42px;
+            color: #495057;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #868e96;
+            font-size: 18px;
+            margin-bottom: 40px;
+        }
+
+        .level-select {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 30px;
+        }
+
+        .level-btn {
+            padding: 20px;
+            border: 2px solid #dee2e6;
+            border-radius: 15px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .level-btn:hover {
+            border-color: #667eea;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .level-btn.active {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .level-btn .emoji {
+            font-size: 36px;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .level-btn .name {
+            font-size: 18px;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .level-btn .desc {
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        .settings {
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 30px;
+        }
+
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: white;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .setting-label {
+            font-size: 16px;
+            color: #495057;
+            font-weight: 600;
+        }
+
+        .setting-control {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .num-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 2px solid #dee2e6;
+            background: white;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.2s;
+        }
+
+        .num-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .num-display {
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .start-btn {
+            padding: 18px 60px;
+            font-size: 22px;
+            border: none;
+            border-radius: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .start-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        /* 游戏界面 */
+        #gameScreen {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+        }
+
+        .game-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stat-box {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-top: 2px;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: rgba(255,255,255,0.3);
+            margin-top: 15px;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #ffd43b;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        .game-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            position: relative;
+        }
+
+        .word-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+            position: relative;
+            transition: transform 0.3s;
+        }
+
+        .word-card.shake {
+            animation: shake 0.5s;
+        }
+
+        .word-card.correct-anim {
+            animation: correctPop 0.5s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-10px); }
+            40% { transform: translateX(10px); }
+            60% { transform: translateX(-10px); }
+            80% { transform: translateX(10px); }
+        }
+
+        @keyframes correctPop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .question-type {
+            color: #868e96;
+            font-size: 14px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .chinese-meaning {
+            font-size: 32px;
+            color: #343a40;
+            font-weight: bold;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .hint-text {
+            font-size: 16px;
+            color: #868e96;
+            margin-bottom: 25px;
+            min-height: 24px;
+        }
+
+        .letter-slots {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .letter-slot {
+            width: 50px;
+            height: 60px;
+            border: 3px solid #dee2e6;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 28px;
+            font-weight: bold;
+            color: #495057;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            background: #f8f9fa;
+        }
+
+        .letter-slot.filled {
+            border-color: #667eea;
+            background: #edf2ff;
+            color: #364fc7;
+        }
+
+        .letter-slot.correct {
+            border-color: #40c057;
+            background: #d3f9d8;
+            color: #2b8a3e;
+            animation: slotCorrect 0.3s;
+        }
+
+        .letter-slot.wrong {
+            border-color: #ff6b6b;
+            background: #ffe3e3;
+            color: #c92a2a;
+            animation: slotWrong 0.3s;
+        }
+
+        @keyframes slotCorrect {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes slotWrong {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+            100% { transform: translateX(0); }
+        }
+
+        .input-area {
+            margin-bottom: 20px;
+        }
+
+        .hidden-input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .virtual-keyboard {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 6px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .key-btn {
+            padding: 12px 5px;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            color: #495057;
+            transition: all 0.15s;
+            text-transform: uppercase;
+        }
+
+        .key-btn:hover {
+            background: #edf2ff;
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .key-btn:active {
+            transform: translateY(0);
+            background: #dbe4ff;
+        }
+
+        .key-btn.wide {
+            grid-column: span 2;
+        }
+
+        .key-btn.action {
+            background: #fff3bf;
+            border-color: #fcc419;
+        }
+
+        .key-btn.danger {
+            background: #ffe3e3;
+            border-color: #ff6b6b;
+        }
+
+        .key-btn.success {
+            background: #d3f9d8;
+            border-color: #40c057;
+        }
+
+        .game-controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .control-btn {
+            padding: 12px 25px;
+            border-radius: 25px;
+            border: 2px solid #dee2e6;
+            background: white;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            color: #495057;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .control-btn.hint-btn:hover {
+            border-color: #fcc419;
+            background: #fff9db;
+        }
+
+        .control-btn.skip-btn:hover {
+            border-color: #ff6b6b;
+            background: #fff5f5;
+        }
+
+        /* 反馈动画 */
+        .feedback {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 60px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 100;
+            opacity: 0;
+        }
+
+        .feedback.show {
+            animation: feedbackAnim 1s ease-out forwards;
+        }
+
+        @keyframes feedbackAnim {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -80%) scale(1); }
+        }
+
+        .feedback.correct {
+            color: #40c057;
+        }
+
+        .feedback.wrong {
+            color: #ff6b6b;
+        }
+
+        /* 结束界面 */
+        #endScreen {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+            overflow-y: auto;
+        }
+
+        .result-emoji {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        .result-title {
+            font-size: 36px;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .result-score {
+            font-size: 24px;
+            color: #667eea;
+            font-weight: bold;
+            margin-bottom: 30px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .stat-card .number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            display: block;
+        }
+
+        .stat-card .label {
+            font-size: 14px;
+            color: #868e96;
+            margin-top: 5px;
+        }
+
+        .wrong-words {
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 30px;
+        }
+
+        .wrong-words h3 {
+            color: #495057;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .word-list {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .word-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .word-item:last-child {
+            border-bottom: none;
+        }
+
+        .word-en {
+            font-weight: bold;
+            color: #495057;
+            font-size: 18px;
+        }
+
+        .word-cn {
+            color: #868e96;
+            font-size: 15px;
+        }
+
+        .end-buttons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .end-btn {
+            padding: 15px 40px;
+            border-radius: 25px;
+            border: none;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .end-btn.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .end-btn.secondary {
+            background: white;
+            color: #495057;
+            border: 2px solid #dee2e6;
+        }
+
+        .end-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        /* 连击提示 */
+        .combo {
+            position: absolute;
+            top: 100px;
+            right: 30px;
+            background: linear-gradient(135deg, #ffd43b 0%, #fcc419 100%);
+            color: #343a40;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 18px;
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(252, 196, 25, 0.4);
+        }
+
+        .combo.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* 响应式 */
+        @media (max-width: 600px) {
+            .game-container {
+                border-radius: 0;
+                max-height: 100vh;
+            }
+            
+            h1 { font-size: 32px; }
+            .chinese-meaning { font-size: 24px; }
+            .virtual-keyboard { grid-template-columns: repeat(8, 1fr); }
+            .key-btn { padding: 10px 3px; font-size: 16px; }
+            .letter-slot { width: 40px; height: 50px; font-size: 22px; }
+            .stats-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- 开始界面 -->
+        <div id="startScreen">
+            <div class="logo">📚</div>
+            <h1>单词大作战</h1>
+            <p class="subtitle">看中文，写英文，轻松背单词！</p>
+            
+            <div class="level-select">
+                <div class="level-btn active" data-level="primary" onclick="selectLevel(this)">
+                    <span class="emoji">🌱</span>
+                    <span class="name">小学词汇</span>
+                    <span class="desc">基础常用词</span>
+                </div>
+                <div class="level-btn" data-level="middle" onclick="selectLevel(this)">
+                    <span class="emoji">📖</span>
+                    <span class="name">初中词汇</span>
+                    <span class="desc">进阶核心词</span>
+                </div>
+                <div class="level-btn" data-level="high" onclick="selectLevel(this)">
+                    <span class="emoji">🎓</span>
+                    <span class="name">高中词汇</span>
+                    <span class="desc">高级难词</span>
+                </div>
+                <div class="level-btn" data-level="daily" onclick="selectLevel(this)">
+                    <span class="emoji">✈️</span>
+                    <span class="name">日常用语</span>
+                    <span class="desc">生活实用词</span>
+                </div>
+            </div>
+
+            <div class="settings">
+                <div class="setting-row">
+                    <span class="setting-label">单词数量</span>
+                    <div class="setting-control">
+                        <button class="num-btn" onclick="changeWordCount(-5)">−</button>
+                        <span class="num-display" id="wordCount">10</span>
+                        <button class="num-btn" onclick="changeWordCount(5)">+</button>
+                    </div>
+                </div>
+            </div>
+
+            <button class="start-btn" onclick="startGame()">开始挑战</button>
+        </div>
+
+        <!-- 游戏界面 -->
+        <div id="gameScreen">
+            <div class="game-header">
+                <div class="stat-box">
+                    <span class="stat-value" id="score">0</span>
+                    <span class="stat-label">得分</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-value" id="combo">0</span>
+                    <span class="stat-label">连击</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-value" id="current">1</span>
+                    <span class="stat-label">进度</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-value" id="timer">0:00</span>
+                    <span class="stat-label">用时</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="game-body">
+                <div class="combo" id="comboDisplay">🔥 3连击!</div>
+                
+                <div class="word-card" id="wordCard">
+                    <div class="question-type">根据中文写英文</div>
+                    <div class="chinese-meaning" id="chineseText">苹果</div>
+                    <div class="hint-text" id="hintText">按键盘输入字母</div>
+                    
+                    <div class="letter-slots" id="letterSlots"></div>
+                    
+                    <div class="input-area">
+                        <input type="text" class="hidden-input" id="hiddenInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    </div>
+
+                    <div class="virtual-keyboard" id="virtualKeyboard"></div>
+                    
+                    <div class="game-controls">
+                        <button class="control-btn hint-btn" onclick="useHint()">
+                            💡 提示 <span id="hintCount">(3)</span>
+                        </button>
+                        <button class="control-btn skip-btn" onclick="skipWord()">
+                            ⏭ 跳过
+                        </button>
+                    </div>
+                </div>
+
+                <div class="feedback" id="feedback"></div>
+            </div>
+        </div>
+
+        <!-- 结束界面 -->
+        <div id="endScreen">
+            <div class="result-emoji" id="resultEmoji">🎉</div>
+            <div class="result-title" id="resultTitle">挑战完成!</div>
+            <div class="result-score" id="resultScore">得分: 100</div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="number" id="correctCount">8</span>
+                    <span class="label">正确</span>
+                </div>
+                <div class="stat-card">
+                    <span class="number" id="wrongCount">2</span>
+                    <span class="label">错误</span>
+                </div>
+                <div class="stat-card">
+                    <span class="number" id="accuracyRate">80%</span>
+                    <span class="label">正确率</span>
+                </div>
+            </div>
+
+            <div class="wrong-words" id="wrongWordsSection" style="display: none;">
+                <h3>📋 错题回顾</h3>
+                <div class="word-list" id="wrongList"></div>
+            </div>
+
+            <div class="end-buttons">
+                <button class="end-btn secondary" onclick="backToMenu()">返回菜单</button>
+                <button class="end-btn primary" onclick="restartGame()">再玩一次</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 单词库
+        const wordDatabase = {
+            primary: [
+                { en: 'apple', cn: '苹果' },
+                { en: 'book', cn: '书' },
+                { en: 'cat', cn: '猫' },
+                { en: 'dog', cn: '狗' },
+                { en: 'happy', cn: '快乐的' },
+                { en: 'water', cn: '水' },
+                { en: 'sun', cn: '太阳' },
+                { en: 'moon', cn: '月亮' },
+                { en: 'school', cn: '学校' },
+                { en: 'friend', cn: '朋友' },
+                { en: 'family', cn: '家庭' },
+                { en: 'food', cn: '食物' },
+                { en: 'red', cn: '红色' },
+                { en: 'blue', cn: '蓝色' },
+                { en: 'big', cn: '大的' },
+                { en: 'small', cn: '小的' },
+                { en: 'run', cn: '跑' },
+                { en: 'jump', cn: '跳' },
+                { en: 'eat', cn: '吃' },
+                { en: 'drink', cn: '喝' }
+            ],
+            middle: [
+                { en: 'beautiful', cn: '美丽的' },
+                { en: 'important', cn: '重要的' },
+                { en: 'remember', cn: '记得' },
+                { en: 'different', cn: '不同的' },
+                { en: 'children', cn: '孩子们' },
+                { en: 'tomorrow', cn: '明天' },
+                { en: 'yesterday', cn: '昨天' },
+                { en: 'favorite', cn: '最喜欢的' },
+                { en: 'weather', cn: '天气' },
+                { en: 'season', cn: '季节' },
+                { en: 'animal', cn: '动物' },
+                { en: 'vegetable', cn: '蔬菜' },
+                { en: 'mountain', cn: '山' },
+                { en: 'library', cn: '图书馆' },
+                { en: 'exercise', cn: '锻炼' },
+                { en: 'language', cn: '语言' },
+                { en: 'culture', cn: '文化' },
+                { en: 'journey', cn: '旅行' },
+                { en: 'knowledge', cn: '知识' },
+                { en: 'practice', cn: '练习' },
+                { en: 'grammar', cn: '语法' },
+                { en: 'sentence', cn: '句子' },
+                { en: 'vocabulary', cn: '词汇' },
+                { en: 'pronunciation', cn: '发音' },
+                { en: 'conversation', cn: '对话' }
+            ],
+            high: [
+                { en: 'phenomenon', cn: '现象' },
+                { en: 'significant', cn: '重要的' },
+                { en: 'consequence', cn: '结果' },
+                { en: 'environment', cn: '环境' },
+                { en: 'government', cn: '政府' },
+                { en: 'technology', cn: '科技' },
+                { en: 'generation', cn: '一代人' },
+                { en: 'opportunity', cn: '机会' },
+                { en: 'experience', cn: '经验' },
+                { en: 'perspective', cn: '观点' },
+                { en: 'contribution', cn: '贡献' },
+                { en: 'achievement', cn: '成就' },
+                { en: 'responsibility', cn: '责任' },
+                { en: 'consciousness', cn: '意识' },
+                { en: 'circumstance', cn: '环境' },
+                { en: 'extraordinary', cn: '非凡的' },
+                { en: 'contemporary', cn: '当代的' },
+                { en: 'nevertheless', cn: '然而' },
+                { en: 'approximately', cn: '大约' },
+                { en: 'simultaneously', cn: '同时地' }
+            ],
+            daily: [
+                { en: 'hello', cn: '你好' },
+                { en: 'thank you', cn: '谢谢' },
+                { en: 'goodbye', cn: '再见' },
+                { en: 'restaurant', cn: '餐厅' },
+                { en: 'hospital', cn: '医院' },
+                { en: 'supermarket', cn: '超市' },
+                { en: 'bathroom', cn: '浴室' },
+                { en: 'breakfast', cn: '早餐' },
+                { en: 'elevation', cn: '电梯' },
+                { en: 'subway', cn: '地铁' },
+                { en: 'airport', cn: '机场' },
+                { en: 'passport', cn: '护照' },
+                { en: 'luggage', cn: '行李' },
+                { en: 'appointment', cn: '预约' },
+                { en: 'discount', cn: '折扣' },
+                { en: 'receipt', cn: '收据' },
+                { en: 'direction', cn: '方向' },
+                { en: 'emergency', cn: '紧急情况' },
+                { en: 'reservation', cn: '预订' },
+                { en: 'vegetarian', cn: '素食者' }
+            ]
+        };
+
+        // 游戏状态
+        let currentLevel = 'primary';
+        let wordCount = 10;
+        let gameWords = [];
+        let currentIndex = 0;
+        let score = 0;
+        let combo = 0;
+        let maxCombo = 0;
+        let correctCount = 0;
+        let wrongCount = 0;
+        let hintRemaining = 3;
+        let wrongWords = [];
+        let startTime = 0;
+        let timerInterval = null;
+        let currentInput = '';
+        let currentWord = null;
+
+        // DOM元素
+        const startScreen = document.getElementById('startScreen');
+        const gameScreen = document.getElementById('gameScreen');
+        const endScreen = document.getElementById('endScreen');
+        const wordCountDisplay = document.getElementById('wordCount');
+        const hiddenInput = document.getElementById('hiddenInput');
+
+        // 选择级别
+        function selectLevel(btn) {
+            document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentLevel = btn.dataset.level;
+        }
+
+        // 改变单词数量
+        function changeWordCount(delta) {
+            wordCount = Math.max(5, Math.min(25, wordCount + delta));
+            wordCountDisplay.textContent = wordCount;
+        }
+
+        // 开始游戏
+        function startGame() {
+            // 随机选取单词
+            const pool = [...wordDatabase[currentLevel]];
+            gameWords = [];
+            for (let i = 0; i < wordCount && pool.length > 0; i++) {
+                const idx = Math.floor(Math.random() * pool.length);
+                gameWords.push(pool.splice(idx, 1)[0]);
+            }
+
+            // 重置状态
+            currentIndex = 0;
+            score = 0;
+            combo = 0;
+            maxCombo = 0;
+            correctCount = 0;
+            wrongCount = 0;
+            hintRemaining = 3;
+            wrongWords = [];
+            currentInput = '';
+            startTime = Date.now();
+
+            // 更新UI
+            updateStats();
+            document.getElementById('hintCount').textContent = `(${hintRemaining})`;
+            
+            // 显示游戏界面
+            startScreen.style.display = 'none';
+            endScreen.style.display = 'none';
+            gameScreen.style.display = 'flex';
+
+            // 开始计时
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 1000);
+
+            // 加载第一题
+            loadWord();
+
+            // 聚焦输入框
+            setTimeout(() => hiddenInput.focus(), 100);
+        }
+
+        // 加载单词
+        function loadWord() {
+            if (currentIndex >= gameWords.length) {
+                endGame();
+                return;
+            }
+
+            currentWord = gameWords[currentIndex];
+            currentInput = '';
+            
+            document.getElementById('chineseText').textContent = currentWord.cn;
+            document.getElementById('hintText').textContent = '按键盘输入字母';
+            document.getElementById('current').textContent = currentIndex + 1;
+            
+            const progress = ((currentIndex) / gameWords.length) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+
+            renderSlots();
+            renderKeyboard();
+            
+            hiddenInput.value = '';
+            hiddenInput.focus();
+        }
+
+        // 渲染字母槽
+        function renderSlots() {
+            const slots = document.getElementById('letterSlots');
+            slots.innerHTML = '';
+            
+            const len = currentWord.en.length;
+            for (let i = 0; i < len; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'letter-slot';
+                slot.id = `slot-${i}`;
+                
+                if (i < currentInput.length) {
+                    slot.textContent = currentInput[i];
+                    slot.classList.add('filled');
+                    
+                    if (currentInput[i].toLowerCase() === currentWord.en[i].toLowerCase()) {
+                        slot.classList.add('correct');
+                    } else {
+                        slot.classList.add('wrong');
+                    }
+                } else if (i === currentInput.length) {
+                    slot.style.borderColor = '#667eea';
+                    slot.style.background = '#f8f9fa';
+                }
+                
+                slots.appendChild(slot);
+            }
+        }
+
+        // 渲染虚拟键盘
+        function renderKeyboard() {
+            const keyboard = document.getElementById('virtualKeyboard');
+            keyboard.innerHTML = '';
+            
+            const rows = [
+                'QWERTYUIOP',
+                'ASDFGHJKL',
+                'ZXCVBNM'
+            ];
+
+            rows.forEach(row => {
+                row.split('').forEach(char => {
+                    const btn = document.createElement('button');
+                    btn.className = 'key-btn';
+                    btn.textContent = char;
+                    btn.onclick = () => handleInput(char);
+                    keyboard.appendChild(btn);
+                });
+            });
+
+            // 功能键
+            const backspace = document.createElement('button');
+            backspace.className = 'key-btn wide action';
+            backspace.innerHTML = '⌫';
+            backspace.onclick = () => handleBackspace();
+            keyboard.appendChild(backspace);
+
+            const enter = document.createElement('button');
+            enter.className = 'key-btn wide success';
+            enter.innerHTML = '↵';
+            enter.onclick = () => checkAnswer();
+            keyboard.appendChild(enter);
+        }
+
+        // 处理输入
+        function handleInput(char) {
+            if (!currentWord || currentInput.length >= currentWord.en.length) return;
+            
+            currentInput += char;
+            hiddenInput.value = currentInput;
+            renderSlots();
+            
+            // 自动检查（如果长度匹配）
+            if (currentInput.length === currentWord.en.length) {
+                setTimeout(() => checkAnswer(), 200);
+            }
+        }
+
+        // 处理退格
+        function handleBackspace() {
+            currentInput = currentInput.slice(0, -1);
+            hiddenInput.value = currentInput;
+            renderSlots();
+        }
+
+        // 检查答案
+        function checkAnswer() {
+            if (!currentWord || currentInput.length === 0) return;
+
+            const isCorrect = currentInput.toLowerCase() === currentWord.en.toLowerCase();
+            
+            if (isCorrect) {
+                handleCorrect();
+            } else {
+                handleWrong();
+            }
+        }
+
+        // 答对处理
+        function handleCorrect() {
+            combo++;
+            if (combo > maxCombo) maxCombo = combo;
+            
+            // 计算得分（连击加成）
+            let points = 10;
+            if (combo >= 5) points = 20;
+            else if (combo >= 3) points = 15;
+            
+            score += points;
+            correctCount++;
+
+            // 显示所有槽正确
+            for (let i = 0; i < currentWord.en.length; i++) {
+                const slot = document.getElementById(`slot-${i}`);
+                if (slot) {
+                    slot.classList.remove('wrong');
+                    slot.classList.add('correct');
+                }
+            }
+
+            // 动画
+            document.getElementById('wordCard').classList.add('correct-anim');
+            setTimeout(() => document.getElementById('wordCard').classList.remove('correct-anim'), 500);
+
+            // 反馈文字
+            const feedback = document.getElementById('feedback');
+            const messages = ['太棒了!', '正确!', '厉害!', '完美!', '继续加油!'];
+            feedback.textContent = messages[Math.floor(Math.random() * messages.length)];
+            feedback.className = 'feedback correct show';
+            setTimeout(() => feedback.className = 'feedback correct', 1000);
+
+            // 连击显示
+            if (combo >= 3) {
+                const comboDisplay = document.getElementById('comboDisplay');
+                comboDisplay.textContent = `🔥 ${combo}连击!`;
+                comboDisplay.classList.add('show');
+                setTimeout(() => comboDisplay.classList.remove('show'), 2000);
+            }
+
+            updateStats();
+
+            // 下一题
+            setTimeout(() => {
+                currentIndex++;
+                loadWord();
+            }, 800);
+        }
+
+        // 答错处理
+        function handleWrong() {
+            combo = 0;
+            wrongCount++;
+            
+            // 记录错题
+            wrongWords.push({
+                ...currentWord,
+                yourAnswer: currentInput
+            });
+
+            // 抖动动画
+            document.getElementById('wordCard').classList.add('shake');
+            setTimeout(() => document.getElementById('wordCard').classList.remove('shake'), 500);
+
+            // 反馈
+            const feedback = document.getElementById('feedback');
+            feedback.textContent = '再想想!';
+            feedback.className = 'feedback wrong show';
+            setTimeout(() => feedback.className = 'feedback wrong', 1000);
+
+            // 显示正确答案提示
+            document.getElementById('hintText').innerHTML = 
+                `正确答案是: <strong style="color: #40c057;">${currentWord.en}</strong>`;
+
+            updateStats();
+
+            // 1.5秒后下一题
+            setTimeout(() => {
+                currentIndex++;
+                loadWord();
+            }, 1500);
+        }
+
+        // 使用提示
+        function useHint() {
+            if (hintRemaining <= 0 || !currentWord) return;
+            
+            hintRemaining--;
+            document.getElementById('hintCount').textContent = `(${hintRemaining})`;
+            
+            // 显示首字母或下一个正确字母
+            const len = currentWord.en.length;
+            let revealed = false;
+            
+            for (let i = 0; i < len; i++) {
+                if (i >= currentInput.length || 
+                    currentInput[i].toLowerCase() !== currentWord.en[i].toLowerCase()) {
+                    
+                    // 自动填充到该位置
+                    currentInput = currentWord.en.substring(0, i + 1);
+                    hiddenInput.value = currentInput;
+                    renderSlots();
+                    revealed = true;
+                    
+                    document.getElementById('hintText').textContent = 
+                        `提示: 第${i + 1}个字母是 "${currentWord.en[i].toUpperCase()}"`;
+                    break;
+                }
+            }
+
+            if (!revealed) {
+                document.getElementById('hintText').textContent = '你已经输入正确了，按回车提交!';
+            }
+        }
+
+        // 跳过
+        function skipWord() {
+            if (!currentWord) return;
+            
+            combo = 0;
+            wrongCount++;
+            wrongWords.push({
+                ...currentWord,
+                yourAnswer: '(跳过)'
+            });
+
+            document.getElementById('hintText').innerHTML = 
+                `跳过! 答案是: <strong style="color: #fcc419;">${currentWord.en}</strong>`;
+
+            updateStats();
+
+            setTimeout(() => {
+                currentIndex++;
+                loadWord();
+            }, 1200);
+        }
+
+        // 更新统计
+        function updateStats() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('combo').textContent = combo;
+        }
+
+        // 更新计时器
+        function updateTimer() {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const mins = Math.floor(elapsed / 60);
+            const secs = elapsed % 60;
+            document.getElementById('timer').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // 结束游戏
+        function endGame() {
+            clearInterval(timerInterval);
+            
+            const total = correctCount + wrongCount;
+            const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const mins = Math.floor(elapsed / 60);
+            const secs = elapsed % 60;
+
+            // 评价
+            let emoji, title;
+            if (accuracy >= 90) {
+                emoji = '🏆'; title = '单词大师!';
+            } else if (accuracy >= 70) {
+                emoji = '🌟'; title = '表现优秀!';
+            } else if (accuracy >= 50) {
+                emoji = '👍'; title = '继续加油!';
+            } else {
+                emoji = '💪'; title = '再接再厉!';
+            }
+
+            document.getElementById('resultEmoji').textContent = emoji;
+            document.getElementById('resultTitle').textContent = title;
+            document.getElementById('resultScore').textContent = `得分: ${score}`;
+            document.getElementById('correctCount').textContent = correctCount;
+            document.getElementById('wrongCount').textContent = wrongCount;
+            document.getElementById('accuracyRate').textContent = accuracy + '%';
+
+            // 错题列表
+            const wrongSection = document.getElementById('wrongWordsSection');
+            const wrongList = document.getElementById('wrongList');
+            
+            if (wrongWords.length > 0) {
+                wrongSection.style.display = 'block';
+                wrongList.innerHTML = '';
+                wrongWords.forEach(w => {
+                    const item = document.createElement('div');
+                    item.className = 'word-item';
+                    item.innerHTML = `
+                        <div>
+                            <div class="word-en">${w.en}</div>
+                            <div class="word-cn">${w.cn}</div>
+                        </div>
+                        <div style="color: #ff6b6b; font-size: 14px;">你的答案: ${w.yourAnswer}</div>
+                    `;
+                    wrongList.appendChild(item);
+                });
+            } else {
+                wrongSection.style.display = 'none';
+            }
+
+            gameScreen.style.display = 'none';
+            endScreen.style.display = 'flex';
+        }
+
+        // 返回菜单
+        function backToMenu() {
+            endScreen.style.display = 'none';
+            startScreen.style.display = 'flex';
+        }
+
+        // 重新开始
+        function restartGame() {
+            startGame();
+        }
+
+        // 键盘事件监听
+        document.addEventListener('keydown', (e) => {
+            if (gameScreen.style.display !== 'flex') return;
+            
+            if (e.key === 'Backspace') {
+                e.preventDefault();
+                handleBackspace();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (currentInput.length > 0) {
+                    checkAnswer();
+                }
+            } else if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+                e.preventDefault();
+                handleInput(e.key);
+            }
+        });
+
+        // 保持输入框聚焦
+        document.addEventListener('click', (e) => {
+            if (gameScreen.style.display === 'flex' && !e.target.closest('.control-btn') && !e.target.closest('.key-btn')) {
+                hiddenInput.focus();
+            }
+        });
+
+        // 触摸设备优化
+        let touchStartY = 0;
+        document.addEventListener('touchstart', (e) => {
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        document.addEventListener('touchmove', (e) => {
+            if (gameScreen.style.display === 'flex') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    </script>
+</body>
+</html>

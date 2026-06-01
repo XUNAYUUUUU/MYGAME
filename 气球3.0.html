@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>点气球 - 炸弹版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            font-family: 'Microsoft YaHei', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(to bottom, #87CEEB 0%, #B0E0E6 50%, #E0F6FF 100%);
+            cursor: crosshair;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            z-index: 5;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 18px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.3s;
+        }
+
+        .panel .emoji {
+            font-size: 22px;
+        }
+
+        .panel .text {
+            font-size: 16px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .panel .number {
+            font-size: 26px;
+            font-weight: bold;
+            min-width: 35px;
+            text-align: center;
+        }
+
+        #scoreValue {
+            color: #FF6B6B;
+            transition: color 0.3s;
+        }
+
+        #scoreValue.negative {
+            color: #FF0000;
+        }
+
+        #scoreValue.bonus {
+            color: #FFD700;
+        }
+
+        #timeValue {
+            color: #4ECDC4;
+        }
+
+        #freezeValue {
+            color: #00BFFF;
+        }
+
+        .freeze-active {
+            background: rgba(0, 150, 255, 0.9) !important;
+            animation: freezePulse 0.3s ease-in-out infinite alternate;
+        }
+
+        .freeze-active .text,
+        .freeze-active .number {
+            color: white !important;
+        }
+
+        @keyframes freezePulse {
+            from { box-shadow: 0 4px 15px rgba(0,150,255,0.4); }
+            to { box-shadow: 0 4px 25px rgba(0,200,255,0.8); }
+        }
+
+        #countdownWarning {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 120px;
+            font-weight: bold;
+            color: #FF0000;
+            text-shadow: 0 0 20px rgba(255,0,0,0.5), 0 0 40px rgba(255,0,0,0.3);
+            pointer-events: none;
+            z-index: 100;
+            display: none;
+            animation: pulse 0.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            to { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
+        }
+
+        #freezeBanner {
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-size: 70px;
+            font-weight: bold;
+            color: #00BFFF;
+            text-shadow: 0 0 30px rgba(0,191,255,0.8), 0 0 60px rgba(255,255,255,0.5);
+            pointer-events: none;
+            z-index: 200;
+            display: none;
+            animation: freezePop 0.5s ease-out forwards;
+        }
+
+        @keyframes freezePop {
+            0% { transform: translate(-50%, -50%) scale(0); }
+            50% { transform: translate(-50%, -50%) scale(1.2); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        #freezeTimer {
+            position: absolute;
+            top: 42%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 45px;
+            font-weight: bold;
+            color: #FFFFFF;
+            text-shadow: 0 0 20px rgba(0,150,255,0.9);
+            pointer-events: none;
+            z-index: 200;
+            display: none;
+        }
+
+        #goldenAlert {
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 26px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 0 0 15px rgba(255,215,0,0.8);
+            pointer-events: none;
+            z-index: 150;
+            display: none;
+            animation: goldenShake 0.5s ease-in-out infinite;
+        }
+
+        @keyframes goldenShake {
+            0%, 100% { transform: translateX(-50%) rotate(-3deg); }
+            50% { transform: translateX(-50%) rotate(3deg); }
+        }
+
+        /* 炸弹警告 */
+        #bombAlert {
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 26px;
+            font-weight: bold;
+            color: #FF0000;
+            text-shadow: 0 0 15px rgba(255,0,0,0.8);
+            pointer-events: none;
+            z-index: 150;
+            display: none;
+            animation: bombShake 0.3s ease-in-out infinite;
+        }
+
+        @keyframes bombShake {
+            0%, 100% { transform: translateX(-50%) translateX(-5px); }
+            50% { transform: translateX(-50%) translateX(5px); }
+        }
+
+        /* 扣分飘字效果 */
+        .float-text {
+            position: absolute;
+            font-size: 36px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 250;
+            animation: floatUp 1s ease-out forwards;
+        }
+
+        .float-minus {
+            color: #FF0000;
+            text-shadow: 0 0 10px rgba(255,0,0,0.5);
+        }
+
+        .float-plus {
+            color: #00AA00;
+            text-shadow: 0 0 10px rgba(0,170,0,0.5);
+        }
+
+        .float-golden {
+            color: #FFD700;
+            text-shadow: 0 0 10px rgba(255,215,0,0.5);
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            50% { transform: translateY(-30px) scale(1.2); opacity: 1; }
+            100% { transform: translateY(-80px) scale(0.8); opacity: 0; }
+        }
+
+        /* 屏幕震动 */
+        .screen-shake {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            10% { transform: translate(-8px, -4px); }
+            20% { transform: translate(8px, 4px); }
+            30% { transform: translate(-6px, 6px); }
+            40% { transform: translate(6px, -6px); }
+            50% { transform: translate(-4px, 4px); }
+            60% { transform: translate(4px, -4px); }
+            70% { transform: translate(-2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+        }
+
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 300;
+        }
+
+        .screen-content {
+            background: white;
+            padding: 45px;
+            border-radius: 30px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            animation: popIn 0.5s ease-out;
+            max-width: 90%;
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0.5); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .screen-content h1 {
+            font-size: 44px;
+            color: #FF6B6B;
+            margin-bottom: 15px;
+        }
+
+        .rules {
+            background: #f0f0f0;
+            padding: 18px;
+            border-radius: 15px;
+            margin: 15px 0;
+            text-align: left;
+        }
+
+        .rules h3 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .rules ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .rules li {
+            padding: 4px 0;
+            color: #555;
+            font-size: 15px;
+        }
+
+        .rules li.golden-rule::before { content: "🌟 "; }
+        .rules li.bomb-rule::before { content: "💣 "; }
+        .rules li.normal-rule::before { content: "🎈 "; }
+        .rules li.freeze-rule::before { content: "❄️ "; }
+        .rules li.time-rule::before { content: "⏰ "; }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 45px;
+            font-size: 22px;
+            border-radius: 50px;
+            cursor: pointer;
+            pointer-events: all;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-family: 'Microsoft YaHei', sans-serif;
+            font-weight: bold;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .balloon-emoji {
+            font-size: 55px;
+            margin: 15px 0;
+            animation: float 2s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        #gameOverScreen h1 {
+            color: #FFA500;
+        }
+
+        #finalScore {
+            font-size: 55px;
+            color: #FF6B6B;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 15px 0;
+        }
+
+        .stat-box {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 10px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        #progressBar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: rgba(0,0,0,0.1);
+            z-index: 5;
+        }
+
+        #progressFill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ECDC4, #44A08D);
+            width: 100%;
+            transition: width 1s linear;
+        }
+
+        #progressFill.urgent {
+            background: linear-gradient(90deg, #FF6B6B, #FF0000);
+        }
+
+        .frozen-screen {
+            box-shadow: inset 0 0 100px rgba(0,200,255,0.3);
+        }
+
+        #freezeOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+            display: none;
+        }
+
+        .freeze-ice {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(200,240,255,0.8) 0%, rgba(100,200,255,0.3) 50%, transparent 70%);
+            animation: iceGrow 0.5s ease-out forwards;
+        }
+
+        @keyframes iceGrow {
+            from { transform: scale(0); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div id="progressBar">
+        <div id="progressFill"></div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="countdownWarning">30</div>
+    <div id="freezeBanner">❄️ 冰冻时间 ❄️</div>
+    <div id="freezeTimer">5.0</div>
+    <div id="goldenAlert">🌟 金色气球出现！点击冻结时间！</div>
+    <div id="bombAlert">💣 炸弹气球！小心别点！</div>
+    <div id="freezeOverlay"></div>
+
+    <div id="ui">
+        <div class="panel">
+            <span class="emoji">🎯</span>
+            <span class="text">得分：</span>
+            <span class="number" id="scoreValue">0</span>
+        </div>
+        <div class="panel" id="timePanel">
+            <span class="emoji">⏰</span>
+            <span class="text">时间：</span>
+            <span class="number" id="timeValue">2:00</span>
+        </div>
+        <div class="panel" id="freezePanel">
+            <span class="emoji">❄️</span>
+            <span class="text">冰冻：</span>
+            <span class="number" id="freezeValue">0</span>
+        </div>
+    </div>
+
+    <div id="startScreen">
+        <div class="screen-content">
+            <div class="balloon-emoji">🎈</div>
+            <h1>点气球</h1>
+            <div class="rules">
+                <h3>游戏规则</h3>
+                <ul>
+                    <li class="normal-rule">彩色气球：点击得分 +1</li>
+                    <li class="golden-rule">金色气球：点击触发冰冻时间 5 秒，+5分</li>
+                    <li class="bomb-rule">炸弹气球：点击扣 10 分！小心避开！</li>
+                    <li class="freeze-rule">冰冻期间：气球停止飘动，疯狂点击得分</li>
+                    <li class="time-rule">游戏时长：2分钟，最后30秒倒计时</li>
+                </ul>
+            </div>
+            <button class="btn" onclick="startGame()">开始游戏</button>
+        </div>
+    </div>
+
+    <div id="gameOverScreen" style="display: none;">
+        <div class="screen-content">
+            <div class="balloon-emoji">🏆</div>
+            <h1>时间到！</h1>
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="stat-label">最终得分</div>
+                    <div class="stat-value" id="finalScore">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">击中气球</div>
+                    <div class="stat-value" id="finalBalloons">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">冰冻次数</div>
+                    <div class="stat-value" id="finalFreezes">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">踩到炸弹</div>
+                    <div class="stat-value" id="finalBombs">0</div>
+                </div>
+            </div>
+            <button class="btn" onclick="restartGame()">再玩一次</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 游戏常量
+        const GAME_DURATION = 120;
+        const WARNING_TIME = 30;
+        const FREEZE_DURATION = 5;
+        const GOLDEN_CHANCE = 0.12;   // 12%金色
+        const BOMB_CHANCE = 0.10;     // 10%炸弹
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        let gameState = 'start';
+        let score = 0;
+        let balloonsPopped = 0;
+        let freezeCount = 0;
+        let bombHits = 0;
+        let balloons = [];
+        let particles = [];
+        let clouds = [];
+        let spawnTimer = 0;
+        let difficulty = 1;
+        
+        let startTime = 0;
+        let elapsedTime = 0;
+        let remainingTime = GAME_DURATION;
+        let countdownValue = WARNING_TIME + 1;
+
+        let isFrozen = false;
+        let freezeEndTime = 0;
+
+        const scoreValue = document.getElementById('scoreValue');
+        const timeValue = document.getElementById('timeValue');
+        const freezeValue = document.getElementById('freezeValue');
+        const timePanel = document.getElementById('timePanel');
+        const freezePanel = document.getElementById('freezePanel');
+        const progressFill = document.getElementById('progressFill');
+        const countdownWarning = document.getElementById('countdownWarning');
+        const freezeBanner = document.getElementById('freezeBanner');
+        const freezeTimer = document.getElementById('freezeTimer');
+        const goldenAlert = document.getElementById('goldenAlert');
+        const bombAlert = document.getElementById('bombAlert');
+        const freezeOverlay = document.getElementById('freezeOverlay');
+
+        const balloonColors = [
+            { body: '#FF6B6B', highlight: '#FFB6B6' },
+            { body: '#4ECDC4', highlight: '#A8E6CF' },
+            { body: '#45B7D1', highlight: '#96CEB4' },
+            { body: '#F9CA24', highlight: '#F0DF99' },
+            { body: '#6C5CE7', highlight: '#A29BFE' },
+            { body: '#FD79A8', highlight: '#FDCB6E' },
+            { body: '#00B894', highlight: '#55EFC4' },
+            { body: '#E17055', highlight: '#FAB1A0' }
+        ];
+
+        const goldenColor = {
+            body: '#FFD700',
+            highlight: '#FFF8DC',
+            glow: '#FFA500'
+        };
+
+        const bombColor = {
+            body: '#333333',
+            highlight: '#666666',
+            fuse: '#FF6600'
+        };
+
+        function createCloud() {
+            const cloud = {
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height * 0.5,
+                width: 100 + Math.random() * 150,
+                speed: 0.2 + Math.random() * 0.3,
+                opacity: 0.3 + Math.random() * 0.4
+            };
+            clouds.push(cloud);
+        }
+
+        for (let i = 0; i < 5; i++) {
+            createCloud();
+        }
+
+        class Balloon {
+            constructor(type = 'normal') {
+                this.type = type; // 'normal', 'golden', 'bomb'
+                this.radius = 30 + Math.random() * 20;
+                this.x = Math.random() * (canvas.width - this.radius * 2) + this.radius;
+                this.y = canvas.height + this.radius;
+                this.speed = 1.5 + Math.random() * 2 + difficulty * 0.5;
+                this.wobble = Math.random() * Math.PI * 2;
+                this.wobbleSpeed = 0.02 + Math.random() * 0.03;
+                this.color = type === 'golden' ? goldenColor : (type === 'bomb' ? bombColor : balloonColors[Math.floor(Math.random() * balloonColors.length)]);
+                this.stringLength = 40 + Math.random() * 30;
+                this.popped = false;
+                this.glowPhase = 0;
+                this.fusePhase = 0;
+            }
+
+            update() {
+                if (isFrozen) {
+                    this.glowPhase += 0.05;
+                    this.fusePhase += 0.1;
+                    return;
+                }
+
+                this.y -= this.speed;
+                this.wobble += this.wobbleSpeed;
+                this.x += Math.sin(this.wobble) * 0.5;
+                this.glowPhase += 0.05;
+                this.fusePhase += 0.1;
+                
+                if (this.x < this.radius) this.x = this.radius;
+                if (this.x > canvas.width - this.radius) this.x = canvas.width - this.radius;
+            }
+
+            draw() {
+                if (this.popped) return;
+                ctx.save();
+
+                // 金色发光
+                if (this.type === 'golden') {
+                    const glowSize = this.radius + 15 + Math.sin(this.glowPhase) * 5;
+                    const gradient = ctx.createRadialGradient(this.x, this.y, this.radius, this.x, this.y, glowSize);
+                    gradient.addColorStop(0, 'rgba(255, 215, 0, 0.4)');
+                    gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, glowSize, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    if (Math.sin(this.glowPhase * 3) > 0.7) {
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                        ctx.font = '20px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('✨', this.x + this.radius * 0.6, this.y - this.radius * 0.6);
+                    }
+                }
+
+                // 炸弹警告效果
+                if (this.type === 'bomb') {
+                    // 红色危险光晕
+                    const dangerSize = this.radius + 10 + Math.sin(this.glowPhase * 2) * 8;
+                    const dangerGrad = ctx.createRadialGradient(this.x, this.y, this.radius, this.x, this.y, dangerSize);
+                    dangerGrad.addColorStop(0, 'rgba(255, 0, 0, 0.3)');
+                    dangerGrad.addColorStop(1, 'rgba(255, 0, 0, 0)');
+                    ctx.fillStyle = dangerGrad;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, dangerSize, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // 闪烁警告
+                    if (Math.sin(this.glowPhase * 4) > 0) {
+                        ctx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, this.radius + 8, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                }
+
+                if (isFrozen) {
+                    ctx.shadowColor = 'rgba(0, 200, 255, 0.6)';
+                    ctx.shadowBlur = 20;
+                }
+
+                // 绳子
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + this.radius);
+                if (isFrozen) {
+                    ctx.lineTo(this.x, this.y + this.radius + this.stringLength);
+                } else {
+                    ctx.quadraticCurveTo(
+                        this.x + Math.sin(this.wobble * 2) * 10, 
+                        this.y + this.radius + this.stringLength / 2,
+                        this.x, 
+                        this.y + this.radius + this.stringLength
+                    );
+                }
+                ctx.strokeStyle = this.type === 'bomb' ? '#FF6600' : (this.type === 'golden' ? '#B8860B' : '#888');
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // 气球主体
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color.body;
+                ctx.fill();
+
+                // 边框
+                if (this.type === 'golden') {
+                    ctx.strokeStyle = '#FFA500';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                } else if (this.type === 'bomb') {
+                    ctx.strokeStyle = '#FF0000';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                // 高光
+                ctx.beginPath();
+                ctx.ellipse(
+                    this.x - this.radius * 0.3, 
+                    this.y - this.radius * 0.3, 
+                    this.radius * 0.25, 
+                    this.radius * 0.15, 
+                    -Math.PI / 4, 
+                    0, 
+                    Math.PI * 2
+                );
+                ctx.fillStyle = this.color.highlight;
+                ctx.fill();
+
+                // 气球底部小结
+                ctx.beginPath();
+                ctx.moveTo(this.x - 5, this.y + this.radius - 2);
+                ctx.lineTo(this.x, this.y + this.radius + 8);
+                ctx.lineTo(this.x + 5, this.y + this.radius - 2);
+                ctx.closePath();
+                ctx.fillStyle = this.color.body;
+                ctx.fill();
+
+                // 炸弹特殊绘制
+                if (this.type === 'bomb') {
+                    // 画引信
+                    const fuseX = this.x + this.radius * 0.3;
+                    const fuseY = this.y - this.radius * 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y - this.radius);
+                    ctx.quadraticCurveTo(fuseX, fuseY - 10, fuseX, fuseY - 15);
+                    ctx.strokeStyle = '#FF6600';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+
+                    // 引信火花
+                    const sparkSize = 3 + Math.sin(this.fusePhase * 5) * 2;
+                    ctx.beginPath();
+                    ctx.arc(fuseX, fuseY - 15, sparkSize, 0, Math.PI * 2);
+                    ctx.fillStyle = '#FFFF00';
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(fuseX, fuseY - 15, sparkSize * 0.5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#FF0000';
+                    ctx.fill();
+
+                    // 骷髅标记
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                    ctx.font = `bold ${this.radius * 0.6}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('💀', this.x, this.y);
+                }
+
+                // 冰冻冰晶
+                if (isFrozen && this.type === 'normal') {
+                    ctx.fillStyle = 'rgba(200, 240, 255, 0.6)';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('❄', this.x - this.radius * 0.5, this.y + this.radius * 0.3);
+                }
+
+                ctx.restore();
+            }
+
+            isClicked(mx, my) {
+                const dx = mx - this.x;
+                const dy = my - this.y;
+                return Math.sqrt(dx * dx + dy * dy) < this.radius + 15;
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color, isSpecial = false) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * (isSpecial ? 15 : 10);
+                this.vy = (Math.random() - 0.5) * (isSpecial ? 15 : 10);
+                this.radius = 3 + Math.random() * 5;
+                this.color = color;
+                this.life = 1;
+                this.decay = 0.02 + Math.random() * 0.02;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.2;
+                this.life -= this.decay;
+                this.radius *= 0.98;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class IceParticle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = 2 + Math.random() * 4;
+                this.speedY = 0.5 + Math.random() * 1.5;
+                this.wobble = Math.random() * Math.PI * 2;
+                this.opacity = 0.3 + Math.random() * 0.5;
+            }
+
+            update() {
+                this.y += this.speedY;
+                this.wobble += 0.05;
+                this.x += Math.sin(this.wobble) * 0.5;
+                if (this.y > canvas.height) {
+                    this.y = -10;
+                    this.x = Math.random() * canvas.width;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.opacity;
+                ctx.fillStyle = '#E0F7FA';
+                ctx.font = `${this.size * 3}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.fillText('❄', this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        let iceParticles = [];
+
+        function createExplosion(x, y, color, isSpecial = false, isBomb = false) {
+            const count = isSpecial ? 30 : 15;
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color.body, isSpecial));
+                particles.push(new Particle(x, y, color.highlight, isSpecial));
+            }
+            if (isSpecial && !isBomb) {
+                for (let i = 0; i < 20; i++) {
+                    particles.push(new Particle(x, y, '#00BFFF', true));
+                }
+            }
+            if (isBomb) {
+                for (let i = 0; i < 25; i++) {
+                    particles.push(new Particle(x, y, '#FF0000', true));
+                    particles.push(new Particle(x, y, '#FF6600', true));
+                    particles.push(new Particle(x, y, '#333333', true));
+                }
+            }
+        }
+
+        // 飘字效果
+        function showFloatText(x, y, text, type) {
+            const el = document.createElement('div');
+            el.className = `float-text float-${type}`;
+            el.textContent = text;
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            document.body.appendChild(el);
+            
+            setTimeout(() => {
+                el.remove();
+            }, 1000);
+        }
+
+        // 屏幕震动
+        function screenShake() {
+            document.body.classList.add('screen-shake');
+            setTimeout(() => {
+                document.body.classList.remove('screen-shake');
+            }, 500);
+        }
+
+        // 炸弹爆炸效果（红屏）
+        function bombFlash() {
+            const flash = document.createElement('div');
+            flash.style.position = 'absolute';
+            flash.style.top = '0';
+            flash.style.left = '0';
+            flash.style.width = '100%';
+            flash.style.height = '100%';
+            flash.style.background = 'rgba(255, 0, 0, 0.3)';
+            flash.style.pointerEvents = 'none';
+            flash.style.zIndex = '240';
+            flash.style.animation = 'fadeOut 0.5s ease-out forwards';
+            document.body.appendChild(flash);
+            
+            const style = document.createElement('style');
+            style.textContent = '@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }';
+            document.head.appendChild(style);
+            
+            setTimeout(() => {
+                flash.remove();
+                style.remove();
+            }, 500);
+        }
+
+        function drawClouds() {
+            ctx.save();
+            clouds.forEach(cloud => {
+                ctx.globalAlpha = cloud.opacity;
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(cloud.x, cloud.y, cloud.width * 0.3, 0, Math.PI * 2);
+                ctx.arc(cloud.x + cloud.width * 0.25, cloud.y - cloud.width * 0.1, cloud.width * 0.35, 0, Math.PI * 2);
+                ctx.arc(cloud.x + cloud.width * 0.5, cloud.y, cloud.width * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+                cloud.x += cloud.speed;
+                if (cloud.x > canvas.width + cloud.width) {
+                    cloud.x = -cloud.width;
+                    cloud.y = Math.random() * canvas.height * 0.5;
+                }
+            });
+            ctx.restore();
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function updateTimer() {
+            if (gameState !== 'playing') return;
+            const now = Date.now();
+            elapsedTime = (now - startTime) / 1000;
+            remainingTime = Math.max(0, GAME_DURATION - elapsedTime);
+            timeValue.textContent = formatTime(remainingTime);
+            
+            const progress = (remainingTime / GAME_DURATION) * 100;
+            progressFill.style.width = `${progress}%`;
+
+            if (remainingTime <= WARNING_TIME && !isFrozen) {
+                progressFill.classList.add('urgent');
+                timePanel.classList.add('time-urgent');
+                const currentCountdown = Math.ceil(remainingTime);
+                if (currentCountdown !== countdownValue) {
+                    countdownValue = currentCountdown;
+                    showCountdown(currentCountdown);
+                }
+            } else if (!isFrozen) {
+                progressFill.classList.remove('urgent');
+                timePanel.classList.remove('time-urgent');
+                countdownWarning.style.display = 'none';
+            }
+
+            if (remainingTime <= 0) {
+                endGame();
+            }
+        }
+
+        function showCountdown(number) {
+            countdownWarning.textContent = number;
+            countdownWarning.style.display = 'block';
+            countdownWarning.style.animation = 'none';
+            setTimeout(() => {
+                countdownWarning.style.animation = 'pulse 0.5s ease-in-out infinite alternate';
+            }, 10);
+            setTimeout(() => {
+                if (Math.ceil(remainingTime) !== number) {
+                    countdownWarning.style.display = 'none';
+                }
+            }, 900);
+        }
+
+        function activateFreeze() {
+            isFrozen = true;
+            freezeEndTime = Date.now() + FREEZE_DURATION * 1000;
+            freezeCount++;
+            freezeValue.textContent = freezeCount;
+            freezePanel.classList.add('freeze-active');
+            freezeBanner.style.display = 'block';
+            freezeBanner.style.animation = 'none';
+            setTimeout(() => {
+                freezeBanner.style.animation = 'freezePop 0.5s ease-out forwards';
+            }, 10);
+            freezeTimer.style.display = 'block';
+            canvas.classList.add('frozen-screen');
+            
+            iceParticles = [];
+            for (let i = 0; i < 50; i++) {
+                iceParticles.push(new IceParticle());
+            }
+            
+            balloons.forEach(balloon => {
+                if (!balloon.popped) {
+                    createIceEffect(balloon.x, balloon.y);
+                }
+            });
+        }
+
+        function createIceEffect(x, y) {
+            const ice = document.createElement('div');
+            ice.className = 'freeze-ice';
+            ice.style.left = (x - 50) + 'px';
+            ice.style.top = (y - 50) + 'px';
+            ice.style.width = '100px';
+            ice.style.height = '100px';
+            freezeOverlay.appendChild(ice);
+            setTimeout(() => { ice.remove(); }, 1000);
+        }
+
+        function deactivateFreeze() {
+            isFrozen = false;
+            freezePanel.classList.remove('freeze-active');
+            freezeBanner.style.display = 'none';
+            freezeTimer.style.display = 'none';
+            canvas.classList.remove('frozen-screen');
+            freezeOverlay.innerHTML = '';
+            iceParticles = [];
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawClouds();
+
+            if (gameState === 'playing') {
+                updateTimer();
+
+                if (isFrozen) {
+                    const now = Date.now();
+                    const freezeRemaining = (freezeEndTime - now) / 1000;
+                    if (freezeRemaining <= 0) {
+                        deactivateFreeze();
+                    } else {
+                        freezeTimer.textContent = freezeRemaining.toFixed(1);
+                        iceParticles.forEach(p => {
+                            p.update();
+                            p.draw();
+                        });
+                        ctx.save();
+                        ctx.strokeStyle = 'rgba(0, 200, 255, 0.3)';
+                        ctx.lineWidth = 10;
+                        ctx.strokeRect(0, 0, canvas.width, canvas.height);
+                        ctx.restore();
+                    }
+                }
+
+                if (!isFrozen) {
+                    difficulty = 1 + (elapsedTime / 30) + (score / 20);
+                }
+
+                spawnTimer++;
+                const spawnRate = isFrozen ? 12 : Math.max(20, 80 - difficulty * 8);
+                if (spawnTimer >= spawnRate) {
+                    const rand = Math.random();
+                    let type = 'normal';
+                    if (rand < BOMB_CHANCE) {
+                        type = 'bomb';
+                    } else if (rand < BOMB_CHANCE + GOLDEN_CHANCE) {
+                        type = 'golden';
+                    }
+                    
+                    const balloon = new Balloon(type);
+                    balloons.push(balloon);
+
+                    if (type === 'golden' && !isFrozen) {
+                        showGoldenAlert();
+                    } else if (type === 'bomb' && !isFrozen) {
+                        showBombAlert();
+                    }
+                    
+                    spawnTimer = 0;
+                }
+
+                for (let i = balloons.length - 1; i >= 0; i--) {
+                    const balloon = balloons[i];
+                    balloon.update();
+                    balloon.draw();
+                    if (!isFrozen && balloon.y < -balloon.radius * 2) {
+                        balloons.splice(i, 1);
+                    }
+                }
+
+                if (isFrozen) {
+                    balloons = balloons.filter(b => b.y > -b.radius * 3);
+                }
+
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const particle = particles[i];
+                    particle.update();
+                    particle.draw();
+                    if (particle.life <= 0) {
+                        particles.splice(i, 1);
+                    }
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function showGoldenAlert() {
+            goldenAlert.style.display = 'block';
+            setTimeout(() => { goldenAlert.style.display = 'none'; }, 2000);
+        }
+
+        function showBombAlert() {
+            bombAlert.style.display = 'block';
+            setTimeout(() => { bombAlert.style.display = 'none'; }, 2000);
+        }
+
+        function handleClick(mx, my) {
+            if (gameState !== 'playing') return;
+
+            for (let i = balloons.length - 1; i >= 0; i--) {
+                const balloon = balloons[i];
+                if (balloon.isClicked(mx, my)) {
+                    if (balloon.type === 'bomb') {
+                        // 炸弹！扣分+特效
+                        createExplosion(balloon.x, balloon.y, balloon.color, true, true);
+                        balloons.splice(i, 1);
+                        score = Math.max(0, score - 10);
+                        bombHits++;
+                        
+                        // 视觉反馈
+                        screenShake();
+                        bombFlash();
+                        showFloatText(mx, my, '-10', 'minus');
+                        
+                        // 分数UI变红
+                        scoreValue.classList.add('negative');
+                        setTimeout(() => scoreValue.classList.remove('negative'), 500);
+                        
+                    } else if (balloon.type === 'golden') {
+                        // 金色！冰冻+加分
+                        createExplosion(balloon.x, balloon.y, balloon.color, true, false);
+                        balloons.splice(i, 1);
+                        score += 5;
+                        showFloatText(mx, my, '+5', 'golden');
+                        scoreValue.classList.add('bonus');
+                        setTimeout(() => scoreValue.classList.remove('bonus'), 500);
+                        activateFreeze();
+                        
+                    } else {
+                        // 普通气球
+                        createExplosion(balloon.x, balloon.y, balloon.color, false, false);
+                        balloons.splice(i, 1);
+                        score++;
+                        showFloatText(mx, my, '+1', 'plus');
+                    }
+                    
+                    balloonsPopped++;
+                    scoreValue.textContent = score;
+                    
+                    // 点击闪光
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.restore();
+                    
+                    break;
+                }
+            }
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            handleClick(e.clientX - rect.left, e.clientY - rect.top);
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            handleClick(touch.clientX - rect.left, touch.clientY - rect.top);
+        }, { passive: false });
+
+        function getRank(score) {
+            if (score >= 100) return '🏆 气球大师';
+            if (score >= 60) return '⭐⭐⭐ 高手';
+            if (score >= 30) return '⭐⭐ 不错';
+            if (score >= 15) return '⭐ 加油';
+            return '💪 再试一次';
+        }
+
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            gameState = 'playing';
+            score = 0;
+            balloonsPopped = 0;
+            freezeCount = 0;
+            bombHits = 0;
+            difficulty = 1;
+            balloons = [];
+            particles = [];
+            iceParticles = [];
+            isFrozen = false;
+            elapsedTime = 0;
+            remainingTime = GAME_DURATION;
+            countdownValue = WARNING_TIME + 1;
+
+            scoreValue.textContent = '0';
+            freezeValue.textContent = '0';
+            timeValue.textContent = '2:00';
+            progressFill.style.width = '100%';
+            progressFill.classList.remove('urgent');
+            timePanel.classList.remove('time-urgent');
+            countdownWarning.style.display = 'none';
+            freezeBanner.style.display = 'none';
+            freezeTimer.style.display = 'none';
+            goldenAlert.style.display = 'none';
+            bombAlert.style.display = 'none';
+            freezeOverlay.innerHTML = '';
+            canvas.classList.remove('frozen-screen');
+            freezePanel.classList.remove('freeze-active');
+
+            startTime = Date.now();
+        }
+
+        function restartGame() {
+            document.getElementById('gameOverScreen').style.display = 'none';
+            startGame();
+        }
+
+        function endGame() {
+            gameState = 'gameover';
+            countdownWarning.style.display = 'none';
+            freezeBanner.style.display = 'none';
+            freezeTimer.style.display = 'none';
+            goldenAlert.style.display = 'none';
+            bombAlert.style.display = 'none';
+            
+            if (isFrozen) {
+                deactivateFreeze();
+            }
+
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalBalloons').textContent = balloonsPopped;
+            document.getElementById('finalFreezes').textContent = freezeCount;
+            document.getElementById('finalBombs').textContent = bombHits;
+            document.getElementById('finalRank').textContent = getRank(score);
+            document.getElementById('gameOverScreen').style.display = 'flex';
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
